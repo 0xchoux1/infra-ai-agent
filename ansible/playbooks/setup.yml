@@ -1,0 +1,66 @@
+---
+# 基本セットアップPlaybook
+# GCP VMインスタンスの初期設定を行う
+
+- name: GCPインスタンス基本セットアップ
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # パッケージリスト
+    basic_packages:
+      - vim
+      - git
+      - curl
+      - wget
+      - htop
+      - python3
+      - python3-pip
+    
+    # タイムゾーン
+    timezone: Asia/Tokyo
+
+  tasks:
+    - name: システム情報の表示
+      debug:
+        msg: "セットアップ対象: {{ inventory_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})"
+
+    - name: タイムゾーンの設定
+      timezone:
+        name: "{{ timezone }}"
+      when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+
+    - name: パッケージリストの更新
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: 基本パッケージのインストール
+      apt:
+        name: "{{ basic_packages }}"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: pipの最新化
+      pip:
+        name: pip
+        state: latest
+        executable: pip3
+
+    - name: Google Cloud SDK確認
+      command: gcloud version
+      register: gcloud_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Google Cloud SDK情報表示
+      debug:
+        msg: "{{ gcloud_check.stdout_lines }}"
+      when: gcloud_check.rc == 0
+
+    - name: セットアップ完了メッセージ
+      debug:
+        msg: "✅ {{ inventory_hostname }} のセットアップが完了しました"
+

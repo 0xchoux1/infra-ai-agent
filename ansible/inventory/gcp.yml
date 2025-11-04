@@ -1,0 +1,50 @@
+---
+# GCP動的インベントリ設定
+plugin: gcp_compute
+
+# プロジェクト設定
+projects:
+  - infra-ai-agent
+
+# リージョン/ゾーン設定（オプション）
+regions:
+  - asia-northeast1
+
+# 認証設定
+# 環境変数 GOOGLE_APPLICATION_CREDENTIALS または
+# Application Default Credentials を使用
+
+# フィルタリング（オプション）
+# 特定のラベルを持つインスタンスのみ取得
+# filters:
+#   - labels.environment = development
+
+# グループ化設定
+keyed_groups:
+  # ゾーン別グループ
+  - key: zone
+    prefix: zone
+  
+  # ラベル別グループ
+  - key: labels
+    prefix: label
+  
+  # ステータス別グループ
+  - key: status
+    prefix: status
+
+# ホスト変数設定
+compose:
+  # Ansibleが接続に使用するIPアドレス
+  ansible_host: networkInterfaces[0].accessConfigs[0].natIP | default(networkInterfaces[0].networkIP)
+  
+  # インスタンスタイプ
+  instance_type: machineType | basename
+  
+  # ラベルをホスト変数として展開
+  gcp_labels: labels
+
+# ホスト名設定
+hostnames:
+  - name
+

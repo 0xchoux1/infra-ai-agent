@@ -1,0 +1,15 @@
+# Terraform変数の例
+# このファイルを terraform.tfvars にコピーして実際の値を設定してください
+# terraform.tfvars は .gitignore に含まれており、コミットされません
+
+project_id  = "infra-ai-agent"
+region      = "asia-northeast1"
+zone        = "asia-northeast1-a"
+environment = "development"
+
+labels = {
+  managed_by = "terraform"
+  project    = "infra-ai-agent"
+  team       = "infrastructure"
+}
+

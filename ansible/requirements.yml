@@ -1,0 +1,11 @@
+---
+# Ansible Galaxy コレクション
+collections:
+  # Google Cloud Platform
+  - name: google.cloud
+    version: ">=1.2.0"
+  
+  # コミュニティ汎用コレクション
+  - name: community.general
+    version: ">=7.0.0"
+
