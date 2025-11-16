@@ -43,7 +43,7 @@ apt-get install -y \
   php8.2-zip \
   php8.2-bcmath \
   php8.2-imagick \
-  mysql-client \
+  default-mysql-client \
   nfs-common \
   curl \
   wget \
@@ -305,9 +305,9 @@ systemctl restart php8.2-fpm
 systemctl restart nginx
 systemctl enable nginx php8.2-fpm
 
-# Cloud Logging Agentインストール
-curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-bash add-logging-agent-repo.sh --also-install
+# Ops Agent (Logging + Monitoring) インストール
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+bash add-google-cloud-ops-agent-repo.sh --also-install
 
 # Wazuh Agentインストール
 if [ ! -z "$WAZUH_MANAGER" ]; then
