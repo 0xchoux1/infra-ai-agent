@@ -1,0 +1,27 @@
+# GCP Project Settings
+project_id = "infra-ai-agent"
+region     = "asia-northeast1"
+zone       = "asia-northeast1-a"
+
+# Environment
+env = "dev"
+
+# WordPress Domains (3 sites for dev)
+domains = [
+  "dev1.example.com",
+  "dev2.example.com",
+  "dev3.example.com"
+]
+
+# Database Settings
+db_availability_type = "ZONAL" # Single zone for dev
+db_tier              = "db-custom-1-3840" # 1 vCPU, 3.75GB RAM
+
+# Filestore Settings
+filestore_tier        = "BASIC_HDD"
+filestore_capacity_gb = 1024 # 1TB minimum for BASIC_HDD
+
+# Compute Settings
+machine_type = "e2-micro"
+min_replicas = 1
+max_replicas = 2

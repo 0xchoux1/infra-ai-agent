@@ -20,38 +20,54 @@ infra-ai-agent/
 ├── README.md                      # このファイル
 ├── CLAUDE.md                      # AIエージェント向け開発ガイド
 ├── .gitignore                     # Git除外設定
-├── env.example                    # 環境変数のテンプレート
+├── .env.example                   # 環境変数のテンプレート
 ├── requirements.txt               # Python依存関係
 │
 ├── terraform/                     # インフラ定義（Terraform）
-│   ├── provider.tf                # GCPプロバイダー設定
-│   ├── variables.tf               # 変数定義
-│   ├── outputs.tf                 # 出力定義
-│   └── terraform.tfvars.example   # 変数値テンプレート
+│   ├── README.md                  # Terraformガイド
+│   ├── VALIDATION.md              # 検証手順
+│   ├── environments/              # 環境別設定
+│   │   ├── prod/                  # 本番環境
+│   │   │   ├── provider.tf
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── outputs.tf
+│   │   │   └── terraform.tfvars.example
+│   │   └── dev/                   # 開発環境
+│   │       └── (同上)
+│   ├── modules/                   # 再利用可能モジュール
+│   │   ├── network/               # VPC、NAT、Firewall
+│   │   ├── iam/                   # サービスアカウント、権限
+│   │   ├── filestore/             # NFS共有ストレージ
+│   │   ├── database/              # Cloud SQL
+│   │   ├── compute/               # MIG、Autoscaling
+│   │   ├── loadbalancer/          # LB、CDN、WAF
+│   │   └── monitoring/            # アラート、ログ
+│   └── scripts/
+│       └── startup_script.sh      # VM起動スクリプト
 │
 ├── ansible/                       # 構成管理（Ansible）
-│   ├── ansible.cfg                # Ansible設定
-│   ├── inventory/                 # インベントリ
-│   │   └── gcp.yml               # GCP動的インベントリ
-│   ├── playbooks/                 # Playbook
-│   │   └── setup.yml             # 基本セットアップ
-│   ├── roles/                     # ロール
-│   └── requirements.yml           # Ansibleコレクション
+│   ├── ansible.cfg
+│   ├── inventory/gcp.yml
+│   ├── playbooks/setup.yml
+│   └── requirements.yml
 │
 ├── agent/                         # AIエージェントコア
 │   ├── __init__.py
-│   ├── main.py                   # CLIエントリーポイント
-│   └── tools/                    # エージェントツール
-│       ├── __init__.py
-│       ├── gcp_tools.py         # GCP操作ツール
-│       └── monitoring.py        # 監視ツール
+│   ├── main.py                    # CLIエントリーポイント
+│   └── tools/
+│       ├── gcp_tools.py           # GCP操作
+│       └── monitoring.py          # 監視
 │
 ├── scripts/                       # ユーティリティスクリプト
-│   ├── check_prerequisites.sh    # 前提条件チェック
-│   ├── setup.sh                  # 初期セットアップ
-│   └── test_connection.py        # GCP接続テスト
+│   ├── check_prerequisites.sh
+│   ├── setup.sh
+│   └── test_connection.py
 │
-├── docs/                          # ドキュメント（予定）
+├── docs/                          # 設計ドキュメント
+│   ├── requirements.md            # 要件定義書（813行）
+│   └── terraform-design.md        # Terraform設計書（2,258行）
+│
 └── tests/                         # テスト（予定）
 ```
 
