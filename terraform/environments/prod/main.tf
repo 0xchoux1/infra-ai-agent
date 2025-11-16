@@ -25,7 +25,7 @@ module "filestore" {
   zone        = var.zone
   tier        = var.filestore_tier
   capacity_gb = var.filestore_capacity_gb
-  network_id  = module.network.vpc_id
+  network_id  = module.network.vpc_name  # ネットワーク名のみ（prod-wordpress-vpc）
 
   depends_on = [module.network]
 }

@@ -42,10 +42,7 @@ resource "google_compute_region_instance_template" "web" {
   service_account {
     email = var.service_account_email
     scopes = [
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring.write",
-      "https://www.googleapis.com/auth/secretmanager", # Secret Manager access
+      "https://www.googleapis.com/auth/cloud-platform", # すべてのGCP APIにアクセス可能
     ]
   }
 

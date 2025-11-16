@@ -49,7 +49,7 @@ resource "google_sql_database_instance" "wordpress" {
     
     database_flags {
       name  = "innodb_buffer_pool_size"
-      value = "268435456" # 256MB
+      value = "4429185024" # 4224MB (55% of 7680MB RAM - maximum allowed)
     }
     
     # ロギング

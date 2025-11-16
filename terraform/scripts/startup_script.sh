@@ -61,10 +61,10 @@ mv wp-cli.phar /usr/local/bin/wp
 mkdir -p /var/www/wordpress
 if ! mount | grep -q '/var/www/wordpress'; then
   mount -t nfs -o rw,hard,intr,rsize=1048576,wsize=1048576 \
-    ${NFS_IP}:${NFS_PATH} /var/www/wordpress
+    $${NFS_IP}:$${NFS_PATH} /var/www/wordpress
   
   # /etc/fstab に追加（再起動時も自動マウント）
-  echo "${NFS_IP}:${NFS_PATH} /var/www/wordpress nfs rw,hard,intr,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
+  echo "$${NFS_IP}:$${NFS_PATH} /var/www/wordpress nfs rw,hard,intr,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
 fi
 
 # ドメインリストを取得（メタデータまたはテンプレート変数から）
@@ -81,7 +81,7 @@ echo "Setting up $DOMAIN_COUNT WordPress sites..."
 
 # ドメイン数分のディレクトリ作成
 for i in $(seq 1 $DOMAIN_COUNT); do
-  mkdir -p /var/www/wordpress/site${i}
+  mkdir -p /var/www/wordpress/site$${i}
 done
 
 chown -R www-data:www-data /var/www/wordpress
@@ -143,12 +143,12 @@ generate_site_config() {
   local site_num=$1
   local domain=$2
   
-  cat > /etc/nginx/sites-available/site${site_num} << SITE_EOF
+  cat > /etc/nginx/sites-available/site$${site_num} << SITE_EOF
 server {
     listen 80;
-    server_name ${domain};
+    server_name $${domain};
     
-    root /var/www/wordpress/site${site_num};
+    root /var/www/wordpress/site$${site_num};
     index index.php index.html;
     
     # WordPress Permalinks
@@ -194,9 +194,9 @@ SITE_EOF
 site_num=0
 echo "$DOMAINS_JSON" | jq -r '.[]' | while IFS= read -r domain; do
   site_num=$((site_num + 1))
-  echo "Configuring site${site_num}: ${domain}"
+  echo "Configuring site$${site_num}: $${domain}"
   generate_site_config $site_num "$domain"
-  ln -sf /etc/nginx/sites-available/site${site_num} /etc/nginx/sites-enabled/site${site_num}
+  ln -sf /etc/nginx/sites-available/site$${site_num} /etc/nginx/sites-enabled/site$${site_num}
 done
 
 ln -sf /etc/nginx/sites-available/health /etc/nginx/sites-enabled/health
@@ -224,7 +224,7 @@ session.cookie_secure = 1
 PHP_INI
 
 # WordPress初期セットアップスクリプト生成
-cat > /usr/local/bin/setup-wordpress-site.sh << 'SETUP_SCRIPT'
+cat > /usr/local/bin/setup-wordpress-site.sh << SETUP_SCRIPT
 #!/bin/bash
 # WordPress サイトセットアップスクリプト
 # 使用方法: setup-wordpress-site.sh <site_num> <domain> <site_title>
@@ -239,14 +239,14 @@ if [ -z "$SITE_NUM" ] || [ -z "$DOMAIN" ] || [ -z "$SITE_TITLE" ]; then
   exit 1
 fi
 
-SITE_DIR="/var/www/wordpress/site${SITE_NUM}"
-DB_NAME="wordpress_site_${SITE_NUM}"
-DB_USER="wp_user_${SITE_NUM}"
+SITE_DIR="/var/www/wordpress/site$${SITE_NUM}"
+DB_NAME="wordpress_site_$${SITE_NUM}"
+DB_USER="wp_user_$${SITE_NUM}"
 
 # Secret Managerから DB パスワード取得
 DB_PASS=$(gcloud secrets versions access latest \
-  --secret="${ENV}-wordpress-db-password-${SITE_NUM}" \
-  --project="${PROJECT_ID}")
+  --secret="$${ENV}-wordpress-db-password-$${SITE_NUM}" \
+  --project="$${PROJECT_ID}")
 
 # WordPress ダウンロード
 cd $SITE_DIR
@@ -255,31 +255,31 @@ if [ ! -f wp-config.php ]; then
   
   # wp-config.php 作成
   sudo -u www-data wp config create \
-    --dbname="${DB_NAME}" \
-    --dbuser="${DB_USER}" \
-    --dbpass="${DB_PASS}" \
-    --dbhost="${DB_HOST}"
+    --dbname="$${DB_NAME}" \
+    --dbuser="$${DB_USER}" \
+    --dbpass="$${DB_PASS}" \
+    --dbhost="$${DB_HOST}"
   
   # 管理者パスワード生成
   ADMIN_PASSWORD=$(openssl rand -base64 32)
   
   # WordPress インストール
   sudo -u www-data wp core install \
-    --url="https://${DOMAIN}" \
-    --title="${SITE_TITLE}" \
+    --url="https://$${DOMAIN}" \
+    --title="$${SITE_TITLE}" \
     --admin_user="admin" \
-    --admin_password="${ADMIN_PASSWORD}" \
-    --admin_email="admin@${DOMAIN}"
+    --admin_password="$${ADMIN_PASSWORD}" \
+    --admin_email="admin@$${DOMAIN}"
   
   # 管理者パスワードをSecret Managerに保存
-  echo -n "${ADMIN_PASSWORD}" | gcloud secrets create \
-    "${ENV}-wordpress-admin-password-${SITE_NUM}" \
+  echo -n "$${ADMIN_PASSWORD}" | gcloud secrets create \
+    "$${ENV}-wordpress-admin-password-$${SITE_NUM}" \
     --data-file=- \
-    --project="${PROJECT_ID}" 2>/dev/null || \
-  echo -n "${ADMIN_PASSWORD}" | gcloud secrets versions add \
-    "${ENV}-wordpress-admin-password-${SITE_NUM}" \
+    --project="$${PROJECT_ID}" 2>/dev/null || \
+  echo -n "$${ADMIN_PASSWORD}" | gcloud secrets versions add \
+    "$${ENV}-wordpress-admin-password-$${SITE_NUM}" \
     --data-file=- \
-    --project="${PROJECT_ID}"
+    --project="$${PROJECT_ID}"
   
   # Cache-Control プラグインインストール（オプション）
   # 実際のプラグインが決まったら、以下のようにインストール
@@ -287,14 +287,14 @@ if [ ! -f wp-config.php ]; then
   # sudo -u www-data wp plugin install w3-total-cache --activate
   
   echo "=========================================="
-  echo "WordPress site ${SITE_NUM} installed successfully!"
-  echo "URL: https://${DOMAIN}"
+  echo "WordPress site $${SITE_NUM} installed successfully!"
+  echo "URL: https://$${DOMAIN}"
   echo "Admin User: admin"
   echo "Admin Password: Saved to Secret Manager"
-  echo "  Retrieve with: gcloud secrets versions access latest --secret=${ENV}-wordpress-admin-password-${SITE_NUM}"
+  echo "  Retrieve with: gcloud secrets versions access latest --secret=$${ENV}-wordpress-admin-password-$${SITE_NUM}"
   echo "=========================================="
 else
-  echo "WordPress already installed in ${SITE_DIR}"
+  echo "WordPress already installed in $${SITE_DIR}"
 fi
 SETUP_SCRIPT
 

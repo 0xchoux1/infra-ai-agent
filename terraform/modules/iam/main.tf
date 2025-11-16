@@ -19,13 +19,6 @@ resource "google_project_iam_member" "web_secret_accessor" {
   member  = "serviceAccount:${google_service_account.web_server.email}"
 }
 
-# Secret Manager作成権限（WordPress管理者パスワード保存用）
-resource "google_project_iam_member" "web_secret_creator" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretCreator"
-  member  = "serviceAccount:${google_service_account.web_server.email}"
-}
-
 # Secret Managerバージョン追加権限（既存Secretへの追加用）
 resource "google_project_iam_member" "web_secret_version_adder" {
   project = var.project_id

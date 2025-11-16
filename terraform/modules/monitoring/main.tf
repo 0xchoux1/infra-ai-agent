@@ -58,12 +58,13 @@ resource "google_monitoring_alert_policy" "health_check_failure" {
 }
 
 # ログシンク（Cloud Logging → Cloud Storage - オプション）
-resource "google_logging_project_sink" "wordpress_logs" {
-  name        = "${var.env}-wordpress-logs-sink"
-  destination = "storage.googleapis.com/${var.log_bucket_name}"
-
-  filter = "resource.type = \"gce_instance\" AND labels.service = \"wordpress\""
-
-  unique_writer_identity = true
-}
+# Phase 2で実装: ログ用のGCS bucketを作成してから有効化
+# resource "google_logging_project_sink" "wordpress_logs" {
+#   name        = "${var.env}-wordpress-logs-sink"
+#   destination = "storage.googleapis.com/${var.log_bucket_name}"
+#
+#   filter = "resource.type = \"gce_instance\" AND labels.service = \"wordpress\""
+#
+#   unique_writer_identity = true
+# }
 

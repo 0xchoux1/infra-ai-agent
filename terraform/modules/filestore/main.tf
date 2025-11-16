@@ -4,17 +4,6 @@ resource "google_project_service" "filestore" {
   disable_on_destroy = false
 }
 
-# Filestore用のIP範囲予約
-resource "google_compute_global_address" "filestore_reserved_range" {
-  name          = "${var.env}-filestore-ip-range"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 29 # /29（8 IPs）- Filestoreの最小要件
-  network       = var.network_id
-
-  description = "Reserved IP range for Filestore"
-}
-
 # Cloud Filestore（NFS）
 resource "google_filestore_instance" "wordpress" {
   name     = "${var.env}-wordpress-nfs"
@@ -27,10 +16,10 @@ resource "google_filestore_instance" "wordpress" {
   }
 
   networks {
-    network           = var.network_id # フルリソース名が必要
+    network           = var.network_id # ネットワーク名（prod-wordpress-vpc形式）
     modes             = ["MODE_IPV4"]
     connect_mode      = "DIRECT_PEERING"
-    reserved_ip_range = google_compute_global_address.filestore_reserved_range.name
+    reserved_ip_range = "10.0.3.0/29" # Filestore用に予約するIP範囲（CIDR形式）
   }
 
   labels = {
@@ -42,7 +31,6 @@ resource "google_filestore_instance" "wordpress" {
   description = "WordPress shared storage for ${var.env} environment"
 
   depends_on = [
-    google_compute_global_address.filestore_reserved_range,
     google_project_service.filestore
   ]
 }
