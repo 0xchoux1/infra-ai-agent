@@ -1,0 +1,35 @@
+---
+# Google Cloud Ops Agent インストール
+
+- name: Ops Agent インストールスクリプトダウンロード
+  get_url:
+    url: https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+    dest: /tmp/add-google-cloud-ops-agent-repo.sh
+    mode: '0755'
+
+- name: Ops Agent インストール
+  command: bash /tmp/add-google-cloud-ops-agent-repo.sh --also-install
+  args:
+    creates: /etc/google-cloud-ops-agent/config.yaml
+  register: ops_agent_install
+
+- name: Ops Agent インストール結果
+  debug:
+    msg: "{{ ops_agent_install.stdout_lines }}"
+  when: ops_agent_install.changed
+
+- name: Ops Agent サービス起動・有効化
+  systemd:
+    name: google-cloud-ops-agent
+    enabled: yes
+    state: started
+
+- name: Ops Agentステータス確認
+  command: systemctl status google-cloud-ops-agent
+  register: ops_agent_status
+  changed_when: false
+  failed_when: false
+
+- name: Ops Agent稼働確認
+  debug:
+    msg: "Ops Agent is {{ 'running' if 'active (running)' in ops_agent_status.stdout else 'not running' }}"

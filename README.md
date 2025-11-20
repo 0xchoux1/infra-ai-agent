@@ -47,10 +47,21 @@ infra-ai-agent/
 │       └── startup_script.sh      # VM起動スクリプト
 │
 ├── ansible/                       # 構成管理（Ansible）
+│   ├── README.md                   # Ansibleガイド
 │   ├── ansible.cfg
-│   ├── inventory/gcp.yml
-│   ├── playbooks/setup.yml
-│   └── requirements.yml
+│   ├── requirements.yml
+│   ├── inventory/
+│   │   └── gcp.yml                 # GCPダイナミックインベントリ
+│   ├── playbooks/
+│   │   ├── setup.yml               # 基本セットアップ
+│   │   ├── deploy-wordpress.yml    # WordPressデプロイ
+│   │   └── quick-setup.yml         # ローカル実行用
+│   └── roles/
+│       └── wordpress/              # WordPressロール
+│           ├── defaults/           # デフォルト変数
+│           ├── tasks/              # タスク（packages, nginx, php, etc）
+│           ├── templates/          # Jinja2テンプレート
+│           └── handlers/           # サービス再起動ハンドラー
 │
 ├── agent/                         # AIエージェントコア
 │   ├── __init__.py
@@ -66,7 +77,9 @@ infra-ai-agent/
 │
 ├── docs/                          # 設計ドキュメント
 │   ├── requirements.md            # 要件定義書（813行）
-│   └── terraform-design.md        # Terraform設計書（2,258行）
+│   ├── terraform-design.md        # Terraform設計書（2,258行）
+│   ├── ansible-usage-guide.md     # Ansible使用ガイド
+│   └── ansible-implementation-summary.md  # Ansible実装サマリー
 │
 └── tests/                         # テスト（予定）
 ```
@@ -167,6 +180,54 @@ python -m agent.main stop INSTANCE_NAME --zone ZONE
 # メトリクス監視
 python -m agent.main monitor INSTANCE_NAME --hours 1
 ```
+
+## 🛠️ WordPress環境のセットアップ（Ansible）
+
+### Ansibleによる自動セットアップ
+
+このプロジェクトでは、WordPressマルチサイト環境をAnsibleで完全自動化しています。
+
+#### クイックスタート
+
+```bash
+# 1. Ansibleディレクトリに移動
+cd ansible
+
+# 2. GCP認証（必要に応じて）
+gcloud auth application-default login
+export GCP_PROJECT_ID="your-project-id"
+
+# 3. WordPressデプロイ実行
+ansible-playbook -i inventory/gcp.yml playbooks/deploy-wordpress.yml
+```
+
+#### 主な機能
+
+- **マルチサイト対応**: 最大10サイトのWordPressを自動セットアップ
+- **Nginx + PHP-FPM**: 最適化された設定（OPcache有効）
+- **Cloud CDN統合**: Cache-Control自動設定
+- **WP-CLI統合**: コマンドラインでのWordPress管理
+- **Secret Manager**: パスワードの安全な管理
+- **監視統合**: Ops Agent（Cloud Logging + Monitoring）
+
+#### WordPressサイトのセットアップ
+
+```bash
+# VMにSSH接続
+gcloud compute ssh wordpress-instance --zone=asia-northeast1-a
+
+# サイトをセットアップ（自動でWP-CLIが実行されます）
+sudo /usr/local/bin/setup-wordpress-site.sh 1 example.com "My WordPress Site"
+
+# 管理者パスワード取得
+gcloud secrets versions access latest --secret=prod-wordpress-admin-password-1
+```
+
+#### 詳細ドキュメント
+
+- [Ansible README](ansible/README.md) - 全体リファレンス
+- [使用ガイド](docs/ansible-usage-guide.md) - 実践例・トラブルシューティング
+- [実装サマリー](docs/ansible-implementation-summary.md) - アーキテクチャ詳細
 
 ## 🎯 使用例
 

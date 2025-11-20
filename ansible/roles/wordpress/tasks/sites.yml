@@ -1,0 +1,80 @@
+---
+# WordPressサイト用ディレクトリとNginx設定
+
+- name: GCPメタデータからドメインリスト取得
+  uri:
+    url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/domains"
+    headers:
+      Metadata-Flavor: "Google"
+    return_content: yes
+  register: domains_metadata
+  when: domains is not defined
+  failed_when: false
+
+- name: ドメインリストを変数に設定
+  set_fact:
+    domains: "{{ domains_metadata.content | from_json if domains_metadata is defined and domains_metadata.content is defined else domains | default([]) }}"
+  when: domains is not defined and domains_metadata.content is defined
+
+- name: ドメインリスト確認
+  debug:
+    msg: "Setting up {{ domains | length }} WordPress sites"
+  when: domains is defined and domains | length > 0
+
+- name: WordPressサイト用ディレクトリ作成
+  file:
+    path: "{{ wordpress_root }}/site{{ (idx + 1) | string }}"
+    state: directory
+    owner: "{{ wordpress_user }}"
+    group: "{{ wordpress_group }}"
+    mode: '0755'
+  loop: "{{ domains | default([]) | list }}"
+  loop_control:
+    index_var: idx
+  when: domains is defined and domains | length > 0
+
+- name: Nginx サイト設定ファイル生成
+  template:
+    src: wordpress-site.conf.j2
+    dest: "/etc/nginx/sites-available/site{{ (idx + 1) | string }}"
+    mode: '0644'
+  loop: "{{ domains | default([]) | list }}"
+  loop_control:
+    index_var: idx
+  when: domains is defined and domains | length > 0
+  notify: restart nginx
+
+- name: Nginx サイト設定有効化
+  file:
+    src: "/etc/nginx/sites-available/site{{ (idx + 1) | string }}"
+    dest: "/etc/nginx/sites-enabled/site{{ (idx + 1) | string }}"
+    state: link
+  loop: "{{ domains | default([]) | list }}"
+  loop_control:
+    index_var: idx
+  when: domains is defined and domains | length > 0
+  notify: restart nginx
+
+- name: WordPressディレクトリの権限設定
+  file:
+    path: "{{ wordpress_root }}"
+    owner: "{{ wordpress_user }}"
+    group: "{{ wordpress_group }}"
+    recurse: yes
+  when: domains is defined and domains | length > 0
+
+- name: WordPressセットアップスクリプト配置
+  template:
+    src: setup-wordpress-site.sh.j2
+    dest: /usr/local/bin/setup-wordpress-site.sh
+    mode: '0755'
+
+- name: セットアップ完了メッセージ
+  debug:
+    msg: |
+      WordPress環境準備完了！
+
+      各サイトをセットアップするには:
+      sudo /usr/local/bin/setup-wordpress-site.sh <site_num> <domain> <site_title>
+
+      例: sudo /usr/local/bin/setup-wordpress-site.sh 1 {{ domains[0] if domains is defined and domains | length > 0 else 'example.com' }} "My WordPress Site"

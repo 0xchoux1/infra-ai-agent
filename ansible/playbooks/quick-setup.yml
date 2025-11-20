@@ -1,0 +1,61 @@
+---
+# クイックセットアップ Playbook
+# ローカルホスト（VM自身）に対してWordPress環境をセットアップします
+# startup_scriptから呼び出されることを想定
+#
+# 使用方法:
+#   ansible-playbook playbooks/quick-setup.yml
+
+- name: WordPress環境クイックセットアップ（ローカル実行）
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # GCPメタデータから環境変数を取得
+    env: "{{ lookup('env', 'ENV') | default('prod', true) }}"
+    gcp_project_id: "{{ lookup('env', 'PROJECT_ID') | default('', true) }}"
+
+  pre_tasks:
+    - name: セットアップ開始
+      debug:
+        msg: "WordPress クイックセットアップを開始します..."
+
+    - name: GCPメタデータから設定取得
+      uri:
+        url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/{{ item.key }}"
+        headers:
+          Metadata-Flavor: "Google"
+        return_content: yes
+      register: "{{ item.value }}"
+      failed_when: false
+      loop:
+        - { key: "env", value: "env_metadata" }
+        - { key: "db_host", value: "db_host_metadata" }
+        - { key: "nfs_ip", value: "nfs_ip_metadata" }
+        - { key: "nfs_path", value: "nfs_path_metadata" }
+        - { key: "project_id", value: "project_id_metadata" }
+
+    - name: 変数設定
+      set_fact:
+        env: "{{ env_metadata.content | default(env) }}"
+        db_host: "{{ db_host_metadata.content | default('') }}"
+        nfs_ip: "{{ nfs_ip_metadata.content | default('') }}"
+        nfs_path: "{{ nfs_path_metadata.content | default('') }}"
+        gcp_project_id: "{{ project_id_metadata.content | default(gcp_project_id) }}"
+      when: env_metadata is defined
+
+  roles:
+    - role: ../roles/wordpress
+
+  post_tasks:
+    - name: セットアップ完了
+      debug:
+        msg: |
+          ========================================
+          ✅ WordPress環境のセットアップが完了しました！
+
+          各サイトをセットアップするには:
+          sudo /usr/local/bin/setup-wordpress-site.sh <site_num> <domain> <site_title>
+          ========================================

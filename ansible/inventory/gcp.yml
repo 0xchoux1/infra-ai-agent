@@ -11,8 +11,10 @@ regions:
   - asia-northeast1
 
 # 認証設定
-# 環境変数 GOOGLE_APPLICATION_CREDENTIALS または
 # Application Default Credentials を使用
+auth_kind: application
+scopes:
+  - https://www.googleapis.com/auth/compute.readonly
 
 # フィルタリング（オプション）
 # 特定のラベルを持つインスタンスのみ取得
@@ -35,12 +37,27 @@ keyed_groups:
 
 # ホスト変数設定
 compose:
-  # Ansibleが接続に使用するIPアドレス
-  ansible_host: networkInterfaces[0].accessConfigs[0].natIP | default(networkInterfaces[0].networkIP)
-  
+  # Ansibleが接続に使用するホスト名（インスタンス名）
+  ansible_host: name
+
+  # ゾーン情報（IAP ProxyCommandで使用）
+  gcp_zone: zone | basename
+
+  # プロジェクトID
+  gcp_project: "'infra-ai-agent'"
+
+  # IAP経由のSSH接続設定
+  ansible_ssh_common_args: '"-o ProxyCommand=\"gcloud compute start-iap-tunnel " + name + " %p --listen-on-stdin --project=infra-ai-agent --zone=" + (zone | basename) + " --verbosity=warning\""'
+
+  # SSH接続ユーザー（GCP OS Login使用）
+  ansible_user: "'usr_0xchoux1_gmail_com'"
+
+  # SSH秘密鍵（GCP用）
+  ansible_ssh_private_key_file: ~/.ssh/google_compute_engine
+
   # インスタンスタイプ
   instance_type: machineType | basename
-  
+
   # ラベルをホスト変数として展開
   gcp_labels: labels
 

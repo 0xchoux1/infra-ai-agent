@@ -1,0 +1,22 @@
+; OPcache設定
+opcache.enable={{ opcache_enable }}
+opcache.memory_consumption={{ opcache_memory_consumption }}
+opcache.interned_strings_buffer={{ opcache_interned_strings_buffer }}
+opcache.max_accelerated_files={{ opcache_max_accelerated_files }}
+opcache.revalidate_freq={{ opcache_revalidate_freq }}
+opcache.fast_shutdown=1
+
+; アップロード設定
+upload_max_filesize = {{ php_upload_max_filesize }}
+post_max_size = {{ php_post_max_size }}
+memory_limit = {{ php_memory_limit }}
+max_execution_time = {{ php_max_execution_time }}
+
+; セッション設定
+session.cookie_httponly = 1
+session.cookie_secure = 1
+
+; エラー表示（本番環境では無効化推奨）
+display_errors = Off
+log_errors = On
+error_log = /var/log/php_errors.log

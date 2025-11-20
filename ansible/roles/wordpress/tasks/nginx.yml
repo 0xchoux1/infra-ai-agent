@@ -1,0 +1,66 @@
+---
+# Nginx設定
+
+# 既存のサイト設定を削除（Terraformスタートアップスクリプトで作成されたもの）
+- name: 既存のサイト設定削除（sites-enabled）
+  shell: rm -f /etc/nginx/sites-enabled/site*
+  changed_when: false
+
+- name: 既存のサイト設定削除（sites-available）
+  shell: rm -f /etc/nginx/sites-available/site*
+  changed_when: false
+
+- name: Nginx メイン設定ファイル配置
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+    validate: 'nginx -t -c %s'
+  notify: restart nginx
+
+- name: sites-available ディレクトリ確認
+  file:
+    path: /etc/nginx/sites-available
+    state: directory
+    mode: '0755'
+
+- name: sites-enabled ディレクトリ確認
+  file:
+    path: /etc/nginx/sites-enabled
+    state: directory
+    mode: '0755'
+
+- name: Health Check エンドポイント設定
+  template:
+    src: health.conf.j2
+    dest: /etc/nginx/sites-available/health
+    mode: '0644'
+  notify: restart nginx
+
+- name: Health Check 有効化
+  file:
+    src: /etc/nginx/sites-available/health
+    dest: /etc/nginx/sites-enabled/health
+    state: link
+  notify: restart nginx
+
+- name: デフォルトサイト無効化
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Nginx設定テスト
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Nginx設定テスト結果
+  debug:
+    msg: "{{ nginx_test.stderr_lines }}"
+
+- name: Nginx サービス有効化・起動
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started

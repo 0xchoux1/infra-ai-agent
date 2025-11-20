@@ -38,7 +38,7 @@ resource "google_sql_database_instance" "wordpress" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = var.network_id
-      require_ssl     = true
+      require_ssl     = false
     }
     
     # データベースフラグ

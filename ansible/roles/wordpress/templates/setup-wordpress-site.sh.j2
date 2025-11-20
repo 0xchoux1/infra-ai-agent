@@ -1,0 +1,173 @@
+#!/bin/bash
+# WordPress サイトセットアップスクリプト
+# 使用方法: setup-wordpress-site.sh <site_num> <domain> <site_title>
+#
+# このスクリプトはAnsibleによって生成されました
+
+set -e
+
+SITE_NUM=$1
+DOMAIN=$2
+SITE_TITLE=$3
+
+if [ -z "$SITE_NUM" ] || [ -z "$DOMAIN" ] || [ -z "$SITE_TITLE" ]; then
+  echo "使用方法: $0 <site_num> <domain> <site_title>"
+  echo "例: $0 1 example.com 'My WordPress Blog'"
+  exit 1
+fi
+
+# 環境変数（Ansibleから注入）
+ENV="{{ env | default('prod') }}"
+PROJECT_ID="{{ gcp_project_id }}"
+SITE_DIR="{{ wordpress_root }}/site${SITE_NUM}"
+DB_NAME="wordpress_site_${SITE_NUM}"
+DB_USER="wp_user_${SITE_NUM}"
+
+# GCPメタデータからDB_HOST取得
+if [ -z "{{ db_host | default('') }}" ]; then
+  DB_HOST=$(curl -s -H "Metadata-Flavor: Google" \
+    http://metadata.google.internal/computeMetadata/v1/instance/attributes/db_host)
+else
+  DB_HOST="{{ db_host }}"
+fi
+
+echo "=========================================="
+echo "WordPress サイトセットアップ開始"
+echo "=========================================="
+echo "サイト番号: ${SITE_NUM}"
+echo "ドメイン: ${DOMAIN}"
+echo "タイトル: ${SITE_TITLE}"
+echo "インストール先: ${SITE_DIR}"
+echo "データベース: ${DB_NAME}"
+echo "=========================================="
+
+# Secret Managerから DB パスワード取得
+echo "データベースパスワードを取得中..."
+DB_PASS=$(gcloud secrets versions access latest \
+  --secret="${ENV}-wordpress-db-password-${SITE_NUM}" \
+  --project="${PROJECT_ID}" 2>/dev/null)
+
+if [ -z "$DB_PASS" ]; then
+  echo "エラー: データベースパスワードが見つかりません"
+  echo "Secret Manager に '${ENV}-wordpress-db-password-${SITE_NUM}' を作成してください"
+  exit 1
+fi
+
+# WordPressディレクトリに移動
+cd ${SITE_DIR}
+
+# WordPress インストール済みチェック
+if [ -f wp-config.php ]; then
+  echo "⚠️  WordPressは既にインストールされています: ${SITE_DIR}"
+  echo "既存のインストールを確認:"
+  sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} core version 2>/dev/null || echo "WP-CLIで確認できませんでした"
+  exit 0
+fi
+
+echo "WordPress コアファイルをダウンロード中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} core download --locale=ja
+
+echo "wp-config.php を作成中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} config create \
+  --dbname="${DB_NAME}" \
+  --dbuser="${DB_USER}" \
+  --dbpass="${DB_PASS}" \
+  --dbhost="${DB_HOST}" \
+  --locale=ja
+
+# セキュリティキー追加
+echo "セキュリティキーを設定中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} config shuffle-salts
+
+# 管理者パスワード生成
+echo "管理者パスワードを生成中..."
+ADMIN_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+
+# WordPress インストール
+echo "WordPressをインストール中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} core install \
+  --url="https://${DOMAIN}" \
+  --title="${SITE_TITLE}" \
+  --admin_user="admin" \
+  --admin_password="${ADMIN_PASSWORD}" \
+  --admin_email="admin@${DOMAIN}" \
+  --skip-email
+
+# 管理者パスワードをSecret Managerに保存
+echo "管理者パスワードをSecret Managerに保存中..."
+echo -n "${ADMIN_PASSWORD}" | gcloud secrets create \
+  "${ENV}-wordpress-admin-password-${SITE_NUM}" \
+  --data-file=- \
+  --project="${PROJECT_ID}" 2>/dev/null || \
+echo -n "${ADMIN_PASSWORD}" | gcloud secrets versions add \
+  "${ENV}-wordpress-admin-password-${SITE_NUM}" \
+  --data-file=- \
+  --project="${PROJECT_ID}"
+
+# 日本語設定
+echo "日本語設定を適用中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} language core install ja --activate
+
+# タイムゾーン設定
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} option update timezone_string 'Asia/Tokyo'
+
+# パーマリンク設定（投稿名）
+echo "パーマリンク設定中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} rewrite structure '/%postname%/' --hard
+
+# 不要なプラグイン・テーマ削除
+echo "不要なプラグインを削除中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} plugin delete hello akismet 2>/dev/null || true
+
+echo "不要なテーマを削除中..."
+sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} theme delete twentytwenty* 2>/dev/null || true
+
+# キャッシュ最適化用のfunctions.php追加
+echo "Cache-Control設定を追加中..."
+cat >> ${SITE_DIR}/wp-content/themes/$(sudo -u {{ wordpress_user }} {{ wpcli_bin_path }} theme list --status=active --field=name)/functions.php << 'EOF'
+
+// Cloud CDN用 Cache-Control ヘッダー設定
+add_action('send_headers', function() {
+    // 管理画面・ログインユーザー
+    if (is_admin() || is_user_logged_in()) {
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        return;
+    }
+
+    // 動的ページ（一般ユーザー）
+    if (is_singular() || is_archive() || is_home()) {
+        header('Cache-Control: public, max-age=300, s-maxage=300');
+        header('Vary: Cookie, Accept-Encoding');
+    }
+
+    // 404ページ
+    if (is_404()) {
+        header('Cache-Control: public, max-age=60');
+    }
+});
+EOF
+
+# ファイルパーミッション設定
+echo "ファイルパーミッションを設定中..."
+chown -R {{ wordpress_user }}:{{ wordpress_group }} ${SITE_DIR}
+find ${SITE_DIR} -type d -exec chmod 755 {} \;
+find ${SITE_DIR} -type f -exec chmod 644 {} \;
+
+echo ""
+echo "=========================================="
+echo "✅ WordPress サイトのセットアップが完了しました！"
+echo "=========================================="
+echo "URL: https://${DOMAIN}"
+echo "管理画面: https://${DOMAIN}/wp-admin/"
+echo "管理ユーザー: admin"
+echo ""
+echo "管理者パスワード取得方法:"
+echo "  gcloud secrets versions access latest --secret=${ENV}-wordpress-admin-password-${SITE_NUM}"
+echo ""
+echo "データベース情報:"
+echo "  DB名: ${DB_NAME}"
+echo "  DBユーザー: ${DB_USER}"
+echo "  DBホスト: ${DB_HOST}"
+echo "=========================================="

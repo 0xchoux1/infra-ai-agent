@@ -1,0 +1,40 @@
+---
+# PHP-FPM設定
+
+- name: PHP-FPM 最適化設定ファイル配置
+  template:
+    src: php-wordpress-optimize.ini.j2
+    dest: "/etc/php/{{ php_version }}/fpm/conf.d/99-wordpress-optimize.ini"
+    mode: '0644'
+  notify: restart php-fpm
+
+- name: PHP-FPM CLI設定も同期
+  template:
+    src: php-wordpress-optimize.ini.j2
+    dest: "/etc/php/{{ php_version }}/cli/conf.d/99-wordpress-optimize.ini"
+    mode: '0644'
+
+- name: PHP-FPM サービス有効化・起動
+  systemd:
+    name: "php{{ php_version }}-fpm"
+    enabled: yes
+    state: started
+
+- name: PHP バージョン確認
+  command: "php --version"
+  register: php_version_output
+  changed_when: false
+
+- name: PHP バージョン表示
+  debug:
+    msg: "{{ php_version_output.stdout_lines[0] }}"
+
+- name: PHP-FPM ステータス確認
+  command: "systemctl status php{{ php_version }}-fpm"
+  register: php_fpm_status
+  changed_when: false
+  failed_when: false
+
+- name: PHP-FPM 実行確認
+  debug:
+    msg: "PHP-FPM is {{ 'running' if 'active (running)' in php_fpm_status.stdout else 'not running' }}"

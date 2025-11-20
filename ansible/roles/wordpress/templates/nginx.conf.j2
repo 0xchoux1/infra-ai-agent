@@ -1,0 +1,35 @@
+user {{ wordpress_user }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # ログ設定
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Gzip圧縮
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # クライアント設定
+    client_max_body_size {{ nginx_client_max_body_size }};
+
+    # サイト設定を読み込み
+    include /etc/nginx/sites-enabled/*;
+}

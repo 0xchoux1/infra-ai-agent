@@ -1,0 +1,73 @@
+---
+# パッケージインストール
+
+- name: システムパッケージリストの更新
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: システムアップグレード
+  apt:
+    upgrade: dist
+  when: perform_system_upgrade | default(false)
+
+- name: Google Cloud SDK リポジトリの追加
+  block:
+    - name: Google Cloud apt keyring ディレクトリ作成
+      file:
+        path: /usr/share/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Google Cloud GPGキーの追加
+      get_url:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        dest: /tmp/google-cloud-apt-key.gpg
+        mode: '0644'
+
+    - name: GPGキーをキーリングに追加
+      shell: |
+        gpg --dearmor < /tmp/google-cloud-apt-key.gpg > /usr/share/keyrings/cloud.google.gpg
+      args:
+        creates: /usr/share/keyrings/cloud.google.gpg
+
+    - name: Google Cloud SDK リポジトリの追加
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+        state: present
+        filename: google-cloud-sdk
+
+    - name: パッケージリスト再更新
+      apt:
+        update_cache: yes
+
+- name: 必須パッケージのインストール
+  apt:
+    name:
+      - nginx
+      - "php{{ php_version }}-fpm"
+      - "php{{ php_version }}-mysql"
+      - "php{{ php_version }}-curl"
+      - "php{{ php_version }}-gd"
+      - "php{{ php_version }}-mbstring"
+      - "php{{ php_version }}-xml"
+      - "php{{ php_version }}-xmlrpc"
+      - "php{{ php_version }}-soap"
+      - "php{{ php_version }}-intl"
+      - "php{{ php_version }}-zip"
+      - "php{{ php_version }}-bcmath"
+      - php-imagick
+      - default-mysql-client
+      - nfs-common
+      - curl
+      - wget
+      - unzip
+      - git
+      - jq
+      - google-cloud-sdk
+    state: present
+    update_cache: yes
+
+- name: インストール済みパッケージ確認
+  debug:
+    msg: "All required packages installed successfully"

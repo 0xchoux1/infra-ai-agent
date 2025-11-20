@@ -1,0 +1,152 @@
+---
+# WordPress デプロイ Playbook
+# WordPressマルチサイト環境をGCP VMにデプロイします
+#
+# 使用方法:
+#   ansible-playbook -i inventory/gcp.yml playbooks/deploy-wordpress.yml
+#
+# 特定のタグのみ実行:
+#   ansible-playbook -i inventory/gcp.yml playbooks/deploy-wordpress.yml --tags nginx
+#
+# 変数の上書き:
+#   ansible-playbook -i inventory/gcp.yml playbooks/deploy-wordpress.yml -e "env=dev"
+
+- name: WordPress マルチサイト環境デプロイ
+  hosts: label_service_wordpress
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # 環境変数（dev/prod）
+    env: "{{ lookup('env', 'ENV') | default('prod', true) }}"
+
+    # GCP設定
+    gcp_project_id: "{{ lookup('env', 'GCP_PROJECT_ID') | default('', true) }}"
+
+    # データベース設定（GCPメタデータまたは変数で上書き）
+    # db_host: "10.x.x.x"
+
+    # NFS設定（GCPメタデータまたは変数で上書き）
+    # nfs_ip: "10.x.x.x"
+    # nfs_path: "/vol1"
+
+  pre_tasks:
+    - name: IAP SSH設定（GCPインスタンス用）
+      set_fact:
+        ansible_ssh_common_args: >-
+          -o ProxyCommand="gcloud compute start-iap-tunnel {{ inventory_hostname }} %p
+          --listen-on-stdin
+          --project={{ gcp_project }}
+          --zone={{ gcp_zone }}
+          --verbosity=warning"
+      when: gcp_zone is defined
+
+    - name: デプロイ開始メッセージ
+      debug:
+        msg: |
+          ========================================
+          WordPress デプロイ開始
+          ========================================
+          ホスト: {{ inventory_hostname }}
+          ゾーン: {{ gcp_zone | default('N/A') }}
+          環境: {{ env }}
+          プロジェクトID: {{ gcp_project_id }}
+          ========================================
+
+    - name: GCPメタデータから環境情報取得
+      block:
+        - name: 環境変数取得
+          uri:
+            url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/env"
+            headers:
+              Metadata-Flavor: "Google"
+            return_content: yes
+          register: env_metadata
+          failed_when: false
+          when: env == ''
+
+        - name: DB_HOST取得
+          uri:
+            url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/db_host"
+            headers:
+              Metadata-Flavor: "Google"
+            return_content: yes
+          register: db_host_metadata
+          failed_when: false
+          when: db_host is not defined
+
+        - name: NFS_IP取得
+          uri:
+            url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nfs_ip"
+            headers:
+              Metadata-Flavor: "Google"
+            return_content: yes
+          register: nfs_ip_metadata
+          failed_when: false
+          when: nfs_ip is not defined
+
+        - name: NFS_PATH取得
+          uri:
+            url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nfs_path"
+            headers:
+              Metadata-Flavor: "Google"
+            return_content: yes
+          register: nfs_path_metadata
+          failed_when: false
+          when: nfs_path is not defined
+
+        - name: メタデータから変数を設定
+          set_fact:
+            env: "{{ env_metadata.content if env_metadata is defined and env_metadata.content is defined and env_metadata.status == 200 else env }}"
+            db_host: "{{ db_host_metadata.content if db_host_metadata is defined and db_host_metadata.content is defined and db_host_metadata.status == 200 else db_host | default('') }}"
+            nfs_ip: "{{ nfs_ip_metadata.content if nfs_ip_metadata is defined and nfs_ip_metadata.content is defined and nfs_ip_metadata.status == 200 else nfs_ip | default('') }}"
+            nfs_path: "{{ nfs_path_metadata.content if nfs_path_metadata is defined and nfs_path_metadata.content is defined and nfs_path_metadata.status == 200 else nfs_path | default('') }}"
+
+    - name: 設定確認
+      debug:
+        msg:
+          - "環境: {{ env }}"
+          - "DB Host: {{ db_host | default('未設定') }}"
+          - "NFS IP: {{ nfs_ip | default('未設定') }}"
+          - "NFS Path: {{ nfs_path | default('未設定') }}"
+
+  roles:
+    - role: ../roles/wordpress
+      tags:
+        - wordpress
+        - all
+
+  post_tasks:
+    - name: デプロイ完了メッセージ
+      debug:
+        msg: |
+          ========================================
+          ✅ WordPress デプロイ完了！
+          ========================================
+
+          次のステップ:
+          1. 各WordPressサイトのセットアップ:
+             sudo /usr/local/bin/setup-wordpress-site.sh <site_num> <domain> <site_title>
+
+          2. SSL証明書の設定（Let's Encrypt）
+
+          3. Cloud CDNとの統合確認
+
+          ========================================
+
+    - name: サービス稼働状況確認
+      command: systemctl status {{ item }}
+      register: service_status
+      changed_when: false
+      failed_when: false
+      loop:
+        - nginx
+        - php8.2-fpm
+        - google-cloud-ops-agent
+
+    - name: サービス状態表示
+      debug:
+        msg: "{{ item.item }}: {{ 'Running ✅' if 'active (running)' in item.stdout else 'Not Running ❌' }}"
+      loop: "{{ service_status.results }}"
+      loop_control:
+        label: "{{ item.item }}"

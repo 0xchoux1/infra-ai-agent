@@ -1,0 +1,53 @@
+---
+# WordPress Ansible Role - Default Variables
+
+# PHP設定
+php_version: "8.2"
+php_memory_limit: "256M"
+php_upload_max_filesize: "64M"
+php_post_max_size: "64M"
+php_max_execution_time: "300"
+
+# OPcache設定
+opcache_enable: 1
+opcache_memory_consumption: 256
+opcache_interned_strings_buffer: 16
+opcache_max_accelerated_files: 20000
+opcache_revalidate_freq: 2
+
+# WordPress設定
+wordpress_root: "/var/www/wordpress"
+wordpress_user: "www-data"
+wordpress_group: "www-data"
+
+# Nginx設定
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024
+nginx_client_max_body_size: "64M"
+
+# WP-CLI設定
+wpcli_url: "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+wpcli_bin_path: "/usr/local/bin/wp"
+
+# NFSマウント設定
+nfs_mount_point: "/var/www/wordpress"
+nfs_mount_options: "rw,hard,intr,rsize=1048576,wsize=1048576"
+
+# Google Cloud設定
+gcp_project_id: "{{ lookup('env', 'GCP_PROJECT_ID') }}"
+gcp_region: "asia-northeast1"
+
+# ドメイン設定（インスタンスメタデータから取得、または変数で上書き）
+# domains:
+#   - example.com
+#   - blog.example.com
+
+# キャッシュ設定
+cache_static_files_expire: "1y"
+cache_static_files_maxage: "31536000"
+
+# セキュリティヘッダー
+security_headers:
+  x_frame_options: "SAMEORIGIN"
+  x_content_type_options: "nosniff"
+  x_xss_protection: "1; mode=block"

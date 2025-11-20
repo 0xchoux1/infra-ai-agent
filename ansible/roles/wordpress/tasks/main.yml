@@ -1,0 +1,39 @@
+---
+# WordPress Ansible Role - Main Tasks
+
+- name: WordPress環境セットアップ
+  debug:
+    msg: "Starting WordPress setup on {{ inventory_hostname }}"
+
+# 1. パッケージのインストール
+- include_tasks: packages.yml
+  tags: packages
+
+# 2. NFSマウント設定
+- include_tasks: nfs.yml
+  tags: nfs
+
+# 3. WP-CLIインストール
+- include_tasks: wpcli.yml
+  tags: wpcli
+
+# 4. Nginx設定
+- include_tasks: nginx.yml
+  tags: nginx
+
+# 5. PHP-FPM設定
+- include_tasks: php.yml
+  tags: php
+
+# 6. WordPressサイトディレクトリ作成
+- include_tasks: sites.yml
+  tags: sites
+
+# 7. 監視エージェント（Ops Agent）
+- include_tasks: monitoring.yml
+  tags: monitoring
+  when: install_ops_agent | default(true)
+
+- name: WordPress環境セットアップ完了
+  debug:
+    msg: "WordPress setup completed successfully!"

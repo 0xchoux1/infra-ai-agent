@@ -1,0 +1,68 @@
+---
+# NFS (Cloud Filestore) マウント設定
+
+- name: WordPressルートディレクトリ作成
+  file:
+    path: "{{ nfs_mount_point }}"
+    state: directory
+    mode: '0755'
+
+- name: NFSマウント状態確認
+  command: "mountpoint -q {{ nfs_mount_point }}"
+  register: mount_check
+  changed_when: false
+  failed_when: false
+
+- name: GCPメタデータからNFS情報取得
+  block:
+    - name: NFS IP取得
+      uri:
+        url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nfs_ip"
+        headers:
+          Metadata-Flavor: "Google"
+        return_content: yes
+      register: nfs_ip_metadata
+      when: nfs_ip is not defined
+
+    - name: NFS パス取得
+      uri:
+        url: "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nfs_path"
+        headers:
+          Metadata-Flavor: "Google"
+        return_content: yes
+      register: nfs_path_metadata
+      when: nfs_path is not defined
+
+    - name: NFS情報を変数に設定
+      set_fact:
+        nfs_ip: "{{ nfs_ip_metadata.content | default(nfs_ip) }}"
+        nfs_path: "{{ nfs_path_metadata.content | default(nfs_path) }}"
+      when: nfs_ip_metadata is defined or nfs_path_metadata is defined
+
+  when: nfs_ip is not defined or nfs_path is not defined
+
+- name: NFSマウント実行
+  mount:
+    path: "{{ nfs_mount_point }}"
+    src: "{{ nfs_ip }}:{{ nfs_path }}"
+    fstype: nfs
+    opts: "{{ nfs_mount_options }}"
+    state: mounted
+  when: mount_check.rc != 0
+
+- name: NFSマウントを/etc/fstabに追加
+  mount:
+    path: "{{ nfs_mount_point }}"
+    src: "{{ nfs_ip }}:{{ nfs_path }}"
+    fstype: nfs
+    opts: "{{ nfs_mount_options }}"
+    state: present
+
+- name: マウント確認
+  command: "df -h {{ nfs_mount_point }}"
+  register: mount_status
+  changed_when: false
+
+- name: マウント状態表示
+  debug:
+    msg: "{{ mount_status.stdout_lines }}"

@@ -1,0 +1,32 @@
+---
+# WP-CLI インストール
+
+- name: WP-CLI ダウンロード
+  get_url:
+    url: "{{ wpcli_url }}"
+    dest: /tmp/wp-cli.phar
+    mode: '0755'
+
+- name: WP-CLI インストール
+  copy:
+    src: /tmp/wp-cli.phar
+    dest: "{{ wpcli_bin_path }}"
+    mode: '0755'
+    remote_src: yes
+
+- name: WP-CLI バージョン確認
+  command: "{{ wpcli_bin_path }} --version"
+  register: wpcli_version
+  changed_when: false
+  become_user: www-data
+
+- name: WP-CLI バージョン表示
+  debug:
+    msg: "{{ wpcli_version.stdout }}"
+
+- name: WP-CLI bash completion インストール
+  get_url:
+    url: https://raw.githubusercontent.com/wp-cli/wp-cli/v2.10.0/utils/wp-completion.bash
+    dest: /etc/bash_completion.d/wp-completion.bash
+    mode: '0644'
+  ignore_errors: yes

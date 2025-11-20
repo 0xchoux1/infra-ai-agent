@@ -1,0 +1,62 @@
+server {
+    listen 80;
+    server_name {{ item }};
+
+    root {{ wordpress_root }}/site{{ (idx + 1) | string }};
+    index index.php index.html;
+
+    # WordPress Permalinks
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # PHP処理
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/var/run/php/php{{ php_version }}-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+
+        # Cache-Control（WordPress側で動的設定）
+        fastcgi_hide_header Cache-Control;
+    }
+
+    # 静的ファイルキャッシュ
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot|webp)$ {
+        expires {{ cache_static_files_expire }};
+        add_header Cache-Control "public, max-age={{ cache_static_files_maxage }}, immutable";
+        access_log off;
+    }
+
+    # 管理画面（キャッシュ無効）
+    location ~ ^/wp-(admin|login|cron\.php) {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        try_files $uri $uri/ /index.php?$args;
+
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_pass unix:/var/run/php/php{{ php_version }}-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        }
+    }
+
+    # セキュリティヘッダー
+    add_header X-Frame-Options "{{ security_headers.x_frame_options }}" always;
+    add_header X-Content-Type-Options "{{ security_headers.x_content_type_options }}" always;
+    add_header X-XSS-Protection "{{ security_headers.x_xss_protection }}" always;
+
+    # wp-config.phpへのアクセス拒否
+    location ~ /wp-config\.php {
+        deny all;
+    }
+
+    # 隠しファイルへのアクセス拒否
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # アップロードサイズ制限
+    client_max_body_size {{ nginx_client_max_body_size }};
+}
